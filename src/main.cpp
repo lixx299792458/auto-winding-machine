@@ -4,6 +4,8 @@
 #include <SPI.h>
 #include <Encoder.h>
 #include <Preferences.h>
+#include <AccelStepper.h>
+#include <MultiStepper.h>
 
 #define DEBUG
 
@@ -38,6 +40,13 @@ U8G2_SSD1306_128X64_NONAME_1_4W_HW_SPI u8g2(U8G2_R0, 11, 7, 6);
 // #define DT 5 // DT ENCODER 
 // ESP32Encoder encoder;
 Encoder myEnc(5, 4);
+
+//定义步进电机部分
+AccelStepper stepperA(AccelStepper::FULL2WIRE, 1 , 0);
+AccelStepper stepperB(AccelStepper::FULL2WIRE, 12, 18);
+MultiStepper steppers;
+long target_positons[2] = {1000,1000};
+
 
 //定义整个GUI需要的全局变量
 //6个菜单
@@ -111,8 +120,16 @@ void setup() {
 	pinMode(13,INPUT_PULLUP);
 	// 蜂鸣器IO口设置部分
 	// pinMode(19,OUTPUT);
+	//配置步进电机
+	stepperA.setMaxSpeed(100);
+	stepperB.setMaxSpeed(100);
+	steppers.addStepper(stepperA);
+	steppers.addStepper(stepperB);
+	//开展步进电机的测试，阻塞性质
+	steppers.moveTo(target_positons);
+	steppers.runSpeedToPosition(); // Blocks until all are in position
+	delay(10000);
 	//屏幕初始化
-	
 	u8g2.begin();
 	// u8g2.firstPage();
 	// // do {
@@ -160,6 +177,8 @@ void loop() {
 	//     oldPosition = newPosition;
 	//     Serial.println(newPosition);
 	//   }
+
+
 	//参数设置状态
 	if(0 == running_state){
 		//切换运行状态
@@ -371,7 +390,10 @@ void loop() {
 			delay(20);
 			while(!digitalRead(8));
 			delay(20);
-			running_state = 0;
+			//开始缠绕之后不得再返回设置界面
+			if(layer_now == 1){
+				running_state = 0;
+			}
 		}
 		//点击按键代表运行
 		if (0 == digitalRead(13)){
@@ -412,6 +434,8 @@ void loop() {
 	}
 	//运行状态
 	if(2 == running_state){
+		//要特殊处理last_layer
+		// todo:
 		//操作步进电机，并显示运行状态匝数等
 		u8g2.firstPage();
 		do {

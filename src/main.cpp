@@ -2,6 +2,7 @@
 #include <Arduino.h>
 #include <U8g2lib.h>
 #include <SPI.h>
+#include <Encoder.h>
 
 //GPIO解锁
 //esp32-c3简直就是在诈骗
@@ -11,30 +12,50 @@
 // 将开发板插入电脑, 在设备管理器中可以看到端口, 记录端口号, 例如 COM20
 // 打开命令行窗口输入espefuse -p COM20 burn_efuse VDD_SPI_AS_GPIO 1
 // 看提示，输入’BURN’
+
 //屏幕相关定义
 //U8G2_SSD1306_128X64_NONAME_1_4W_SW_SPI u8g2(U8G2_R0, /* clock=*/ 13, /* data=*/ 11, /* cs=*/ 10, /* dc=*/ 9, /* reset=*/ 8);
 U8G2_SSD1306_128X64_NONAME_1_4W_HW_SPI u8g2(U8G2_R0, 11, 7, 6);
 
+//ESP32-C3芯片，这个编码器库不支持
+// //旋转编码器定义部分
+// #define CLK 4 // CLK ENCODER 
+// #define DT 5 // DT ENCODER 
+// ESP32Encoder encoder;
+Encoder myEnc(4, 5);
+long oldPosition  = -999;
+
 
 void setup() {
-  pinMode(12,OUTPUT);
-  pinMode(13,OUTPUT);
+  // //板载LED测试部分
+  // pinMode(12,OUTPUT);
+  // pinMode(13,OUTPUT);
+
 	u8g2.begin();
 	u8g2.firstPage();
 	do {
 		u8g2.setFont(u8g2_font_VCR_OSD_tu);
 		u8g2.setCursor(1, 20);
-		u8g2.print("hello,esp32-c3");
+		u8g2.print("1234");
 	} while ( u8g2.nextPage() );
+
+
+  Serial.begin(9600);
+  Serial.println("Basic Encoder Test:");
+
 }
 
 void loop() {
-  // put your main code here, to run repeatedly:
-  digitalWrite(12,HIGH);
-  digitalWrite(13,HIGH);
-  delay(1000);
-  digitalWrite(12,LOW);
-  digitalWrite(13,LOW);
-  delay(1000);
-
+  //板载LED测试部分
+  // digitalWrite(12,HIGH);
+  // digitalWrite(13,HIGH);
+  // delay(1000);
+  // digitalWrite(12,LOW);
+  // digitalWrite(13,LOW);
+  // delay(1000);
+  long newPosition = myEnc.read();
+  if (newPosition != oldPosition) {
+    oldPosition = newPosition;
+    Serial.println(newPosition);
+  }
 }

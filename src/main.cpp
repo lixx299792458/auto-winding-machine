@@ -37,7 +37,9 @@ void setup() {
 	//设置按键切换状态
 	pinMode(8,INPUT_PULLUP);
 	pinMode(13,INPUT_PULLUP);
-
+	// 蜂鸣器IO口设置部分
+	// pinMode(19,OUTPUT);
+	//屏幕初始化
 	u8g2.begin();
 	u8g2.firstPage();
 	do {
@@ -61,6 +63,11 @@ void loop() {
 	// delay(1000);
 	// digitalWrite(12,LOW);
 	// digitalWrite(13,LOW);
+	// delay(1000);
+	//蜂鸣器测试部分
+	// digitalWrite(19,HIGH);
+	// delay(1000);
+	// digitalWrite(19,LOW);
 	// delay(1000);
 	//编码器测试部分
 	//   long newPosition = myEnc.read();

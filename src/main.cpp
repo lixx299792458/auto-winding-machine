@@ -3,7 +3,18 @@
 #include <U8g2lib.h>
 #include <SPI.h>
 #include <Encoder.h>
-
+#include <Preferences.h>
+//永久存储部分
+Preferences preferences;
+//结构体才是正道
+struct logtype {
+	int32_t wire_diameter;
+	int32_t layer_turns;
+	int32_t total_turns;
+	int32_t return_error;
+	int32_t setting_step;
+};
+logtype nvs_logger = {0,0,0,0,0};
 
 #define DEBUG
 
@@ -26,7 +37,6 @@ U8G2_SSD1306_128X64_NONAME_1_4W_HW_SPI u8g2(U8G2_R0, 11, 7, 6);
 // #define DT 5 // DT ENCODER 
 // ESP32Encoder encoder;
 Encoder myEnc(5, 4);
-long oldPosition  = -999;
 
 //定义整个GUI需要的全局变量
 //6个菜单
@@ -43,7 +53,7 @@ int32_t layer_turns_init = 0;
 int32_t layer_turns_encoder = 0;
 int32_t layer_turns = 0;
 //3、总匝数
-char itemC[] = "total truns:";
+char itemC[] = "total turns:";
 int32_t total_turns_init = 0;
 int32_t total_turns_encoder = 0;
 int32_t total_turns = 0;
@@ -63,7 +73,22 @@ int32_t move_steps_init = 0;
 int32_t move_steps_encoder = 0;
 int32_t move_steps = 0;
 
+//TODO:使得设置的数值可以保存，并在下次重启后赋予各参数初始值，移动对刀步数除外。
+
 void setup() {
+	//上次设置的数值初始化
+	preferences.begin("nvs-log", false);
+	preferences.getBytes("nvs-log", &nvs_logger, sizeof(nvs_logger));
+	wire_diameter_init = nvs_logger.wire_diameter;
+	layer_turns_init = nvs_logger.layer_turns;
+	total_turns_init = nvs_logger.total_turns;
+	return_error_init = nvs_logger.return_error;
+	setting_step_init = nvs_logger.setting_step;
+	wire_diameter = nvs_logger.wire_diameter;
+	layer_turns = nvs_logger.layer_turns;
+	total_turns = nvs_logger.total_turns;
+	return_error = nvs_logger.return_error;
+	setting_step = nvs_logger.setting_step;
 	// //板载LED测试部分
 	pinMode(12,OUTPUT);
 	// pinMode(13,OUTPUT);
@@ -164,90 +189,91 @@ void loop() {
 			//首先显示前三行并选中第一行
 			u8g2.firstPage();
 			do {
-				u8g2.setFont(u8g2_font_7x14B_tf);
-				u8g2.setCursor(3, 16);
-				u8g2.print(itemA);u8g2.print(wire_diameter);//u8g2.print("um");
-				u8g2.setCursor(3, 37);
+				u8g2.setFont(u8g2_font_7x14_mr);
+				u8g2.setCursor(4, 16);
+				// u8g2.print(itemA);u8g2.print(wire_diameter);u8g2.print("um");
+				u8g2.print(itemA);u8g2.printf("%4.2f",(wire_diameter/1000.0F));u8g2.print("mm");
+				u8g2.setCursor(4, 37);
 				u8g2.print(itemB);u8g2.print(layer_turns);
-				u8g2.setCursor(3, 58);
+				u8g2.setCursor(4, 58);
 				u8g2.print(itemC);u8g2.print(total_turns);
 				u8g2.setDrawColor(2);
-				u8g2.drawBox(1, 1, 127, 20);
+				u8g2.drawBox(1, 1, 120, 20);
 			} while ( u8g2.nextPage() );
 			break;
 		case 1:
 			//首先显示前三行并选中第2行
 			u8g2.firstPage();
 			do {
-				u8g2.setFont(u8g2_font_7x14B_tf);
-				u8g2.setCursor(3, 16);
-				u8g2.print(itemA);u8g2.print(wire_diameter);
-				u8g2.setCursor(3, 37);
+				u8g2.setFont(u8g2_font_7x14_mr);
+				u8g2.setCursor(4, 16);
+				u8g2.print(itemA);u8g2.printf("%4.2f",(wire_diameter/1000.0F));u8g2.print("mm");
+				u8g2.setCursor(4, 37);
 				u8g2.print(itemB);u8g2.print(layer_turns);
-				u8g2.setCursor(3, 58);
+				u8g2.setCursor(4, 58);
 				u8g2.print(itemC);u8g2.print(total_turns);
 				u8g2.setDrawColor(2);
-				u8g2.drawBox(1, 22, 127, 41);
+				u8g2.drawBox(1, 22, 120, 41);
 			} while ( u8g2.nextPage() );
 			break;
 		case 2:
 			//首先显示前三行并选中第3行
 			u8g2.firstPage();
 			do {
-				u8g2.setFont(u8g2_font_7x14B_tf);
-				u8g2.setCursor(3, 16);
-				u8g2.print(itemA);u8g2.print(wire_diameter);
-				u8g2.setCursor(3, 37);
+				u8g2.setFont(u8g2_font_7x14_mr);
+				u8g2.setCursor(4, 16);
+				u8g2.print(itemA);u8g2.printf("%4.2f",(wire_diameter/1000.0F));u8g2.print("mm");
+				u8g2.setCursor(4, 37);
 				u8g2.print(itemB);u8g2.print(layer_turns);
-				u8g2.setCursor(3, 58);
+				u8g2.setCursor(4, 58);
 				u8g2.print(itemC);u8g2.print(total_turns);
 				u8g2.setDrawColor(2);
-				u8g2.drawBox(1, 43, 127, 62);
+				u8g2.drawBox(1, 43, 120, 62);
 			} while ( u8g2.nextPage() );
 			break;
 		case 3:
 			//首先显示后三行并选中第1行
 			u8g2.firstPage();
 			do {
-				u8g2.setFont(u8g2_font_7x14B_tf);
-				u8g2.setCursor(3, 16);
+				u8g2.setFont(u8g2_font_7x14_mr);
+				u8g2.setCursor(4, 16);
 				u8g2.print(itemD);u8g2.print(return_error);
-				u8g2.setCursor(3, 37);
+				u8g2.setCursor(4, 37);
 				u8g2.print(itemE);u8g2.print(setting_step);
-				u8g2.setCursor(3, 58);
+				u8g2.setCursor(4, 58);
 				u8g2.print(itemF);u8g2.print(move_steps);
 				u8g2.setDrawColor(2);
-				u8g2.drawBox(1, 1, 127, 20);
+				u8g2.drawBox(1, 1, 120, 20);
 			} while ( u8g2.nextPage() );
 			break;
 		case 4:
 			//首先显示后三行并选中第2行
 			u8g2.firstPage();
 			do {
-				u8g2.setFont(u8g2_font_7x14B_tf);
-				u8g2.setCursor(3, 16);
+				u8g2.setFont(u8g2_font_7x14_mr);
+				u8g2.setCursor(4, 16);
 				u8g2.print(itemD);u8g2.print(return_error);
-				u8g2.setCursor(3, 37);
+				u8g2.setCursor(4, 37);
 				u8g2.print(itemE);u8g2.print(setting_step);
-				u8g2.setCursor(3, 58);
+				u8g2.setCursor(4, 58);
 				u8g2.print(itemF);u8g2.print(move_steps);
 				u8g2.setDrawColor(2);
-				u8g2.drawBox(1, 22, 127, 41);
+				u8g2.drawBox(1, 22, 120, 41);
 			} while ( u8g2.nextPage() );
 			break;
 		case 5:
 			//首先显示后三行并选中第2行
 			u8g2.firstPage();
 			do {
-				u8g2.setFont(u8g2_font_7x14B_tf);
-				u8g2.setCursor(3, 16);
+				u8g2.setFont(u8g2_font_7x14_mr);
+				u8g2.setCursor(4, 16);
 				u8g2.print(itemD);u8g2.print(return_error);
-				u8g2.setCursor(3, 37);
+				u8g2.setCursor(4, 37);
 				u8g2.print(itemE);u8g2.print(setting_step);
-				u8g2.setCursor(3, 58);
+				u8g2.setCursor(4, 58);
 				u8g2.print(itemF);u8g2.print(move_steps);
 				u8g2.setDrawColor(2);
-				u8g2.drawBox(1, 43, 127, 62);
+				u8g2.drawBox(1, 43, 120, 62);
 			} while ( u8g2.nextPage() );
 			break;
 		default:
@@ -261,7 +287,9 @@ void loop() {
 			if (newPosition != wire_diameter_encoder) {
 				wire_diameter_encoder = newPosition;
 			}
-			wire_diameter = (wire_diameter_init + wire_diameter_encoder/4)*10;
+			wire_diameter = wire_diameter_init + wire_diameter_encoder/4*10;
+			nvs_logger.wire_diameter = wire_diameter;
+			preferences.putBytes("nvs-log", &nvs_logger, sizeof(nvs_logger));
 			break;
 		case 1:
 			newPosition = myEnc.read();
@@ -269,6 +297,8 @@ void loop() {
 				layer_turns_encoder = newPosition;
 			}
 			layer_turns = layer_turns_init + layer_turns_encoder/4;
+			nvs_logger.layer_turns = layer_turns;
+			preferences.putBytes("nvs-log", &nvs_logger, sizeof(nvs_logger));
 			break;			
 		case 2:
 			newPosition = myEnc.read();
@@ -276,6 +306,8 @@ void loop() {
 				total_turns_encoder = newPosition;
 			}
 			total_turns = total_turns_init + total_turns_encoder/4;
+			nvs_logger.total_turns = total_turns;
+			preferences.putBytes("nvs-log", &nvs_logger, sizeof(nvs_logger));
 			break;	
 		case 3:
 			newPosition = myEnc.read();
@@ -283,6 +315,8 @@ void loop() {
 				return_error_encoder = newPosition;
 			}
 			return_error = return_error_init + return_error_encoder/4;
+			nvs_logger.return_error = return_error;
+			preferences.putBytes("nvs-log", &nvs_logger, sizeof(nvs_logger));			
 			break;			
 		case 4:
 			newPosition = myEnc.read();
@@ -290,6 +324,8 @@ void loop() {
 				setting_step_encoder = newPosition;
 			}
 			setting_step = setting_step_init + setting_step_encoder/4;
+			nvs_logger.setting_step = setting_step;
+			preferences.putBytes("nvs-log", &nvs_logger, sizeof(nvs_logger));	
 			break;	
 		case 5:
 			newPosition = myEnc.read();

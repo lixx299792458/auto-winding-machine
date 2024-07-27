@@ -4,6 +4,9 @@
 #include <SPI.h>
 #include <Encoder.h>
 
+
+#define DEBUG
+
 //GPIO解锁
 //esp32-c3简直就是在诈骗
 // ESP32C3的GPIO11(VDD_SPI)默认功能是给flash供电，本开发板的Flash的VDD直接接3.3，所以可以将此IO用作GPIO.
@@ -27,9 +30,13 @@ long oldPosition  = -999;
 
 
 void setup() {
-  // //板载LED测试部分
-  // pinMode(12,OUTPUT);
-  // pinMode(13,OUTPUT);
+	// //板载LED测试部分
+	// pinMode(12,OUTPUT);
+	// pinMode(13,OUTPUT);
+
+	//设置按键切换状态
+	pinMode(8,INPUT_PULLUP);
+	pinMode(13,INPUT_PULLUP);
 
 	u8g2.begin();
 	u8g2.firstPage();
@@ -39,23 +46,41 @@ void setup() {
 		u8g2.print("1234");
 	} while ( u8g2.nextPage() );
 
+	#ifdef DEBUG
+		Serial.begin(9600);
+		// Serial.println("Basic Encoder Test:");
+	#endif
 
-  Serial.begin(9600);
-  Serial.println("Basic Encoder Test:");
 
 }
 
 void loop() {
-  //板载LED测试部分
-  // digitalWrite(12,HIGH);
-  // digitalWrite(13,HIGH);
-  // delay(1000);
-  // digitalWrite(12,LOW);
-  // digitalWrite(13,LOW);
-  // delay(1000);
-  long newPosition = myEnc.read();
-  if (newPosition != oldPosition) {
-    oldPosition = newPosition;
-    Serial.println(newPosition);
-  }
+	//板载LED测试部分
+	// digitalWrite(12,HIGH);
+	// digitalWrite(13,HIGH);
+	// delay(1000);
+	// digitalWrite(12,LOW);
+	// digitalWrite(13,LOW);
+	// delay(1000);
+	//编码器测试部分
+	//   long newPosition = myEnc.read();
+	//   if (newPosition != oldPosition) {
+	//     oldPosition = newPosition;
+	//     Serial.println(newPosition);
+	//   }
+	if (0 == digitalRead(8)){
+		//消抖
+		delay(20);
+		while(!digitalRead(8));
+		delay(20);
+		// Serial.print("key1 click");
+	}
+	if (0 == digitalRead(13)){
+		//消抖
+		delay(20);
+		while(!digitalRead(13));
+		delay(20);
+		// Serial.print("key2 click");
+	}
 }
+

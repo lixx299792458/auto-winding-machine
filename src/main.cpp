@@ -31,7 +31,7 @@ long oldPosition  = -999;
 
 void setup() {
 	// //板载LED测试部分
-	// pinMode(12,OUTPUT);
+	pinMode(12,OUTPUT);
 	// pinMode(13,OUTPUT);
 
 	//设置按键切换状态
@@ -40,10 +40,15 @@ void setup() {
 	// 蜂鸣器IO口设置部分
 	// pinMode(19,OUTPUT);
 	//屏幕初始化
+	
 	u8g2.begin();
 	u8g2.firstPage();
 	do {
 		u8g2.setFont(u8g2_font_VCR_OSD_tu);
+		u8g2.setFontMode(1);
+		u8g2.setDrawColor(1);
+		u8g2.drawBox(0, 0, 127, 63);
+		u8g2.setDrawColor(2);
 		u8g2.setCursor(1, 20);
 		u8g2.print("1234");
 	} while ( u8g2.nextPage() );
@@ -58,12 +63,12 @@ void setup() {
 
 void loop() {
 	//板载LED测试部分
-	// digitalWrite(12,HIGH);
+	digitalWrite(12,HIGH);
 	// digitalWrite(13,HIGH);
-	// delay(1000);
-	// digitalWrite(12,LOW);
+	delay(1000);
+	digitalWrite(12,LOW);
 	// digitalWrite(13,LOW);
-	// delay(1000);
+	delay(1000);
 	//蜂鸣器测试部分
 	// digitalWrite(19,HIGH);
 	// delay(1000);

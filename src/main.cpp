@@ -4,8 +4,44 @@
 #include <SPI.h>
 #include <Encoder.h>
 #include <Preferences.h>
-#include <AccelStepper.h>
-#include <MultiStepper.h>
+// #include <AccelStepper.h>
+// #include <MultiStepper.h>
+#include <Arduino.h>
+#include "BasicStepperDriver.h"
+#include "MultiDriver.h"
+#include "SyncDriver.h"
+
+// Motor steps per revolution. Most steppers are 200 steps or 1.8 degrees/step
+#define MOTOR_STEPS 200
+// Target RPM for X axis motor
+#define MOTOR_X_RPM 30
+// Target RPM for Y axis motor
+#define MOTOR_Y_RPM 90
+
+// X motor
+#define DIR_X 0
+#define STEP_X 1
+
+// Y motor
+#define DIR_Y 12
+#define STEP_Y 18
+
+// If microstepping is set externally, make sure this matches the selected mode
+// 1=full step, 2=half step etc.
+#define MICROSTEPS 1
+
+// 2-wire basic config, microstepping is hardwired on the driver
+// Other drivers can be mixed and matched but must be configured individually
+BasicStepperDriver stepperX(MOTOR_STEPS, DIR_X, STEP_X);
+BasicStepperDriver stepperY(MOTOR_STEPS, DIR_Y, STEP_Y);
+
+// Pick one of the two controllers below
+// each motor moves independently, trajectory is a hockey stick
+// MultiDriver controller(stepperX, stepperY);
+// OR
+// synchronized move, trajectory is a straight line
+SyncDriver controller(stepperX, stepperY);
+
 
 #define DEBUG
 
@@ -42,10 +78,10 @@ U8G2_SSD1306_128X64_NONAME_1_4W_HW_SPI u8g2(U8G2_R0, 11, 7, 6);
 Encoder myEnc(5, 4);
 
 //定义步进电机部分
-AccelStepper stepperA(AccelStepper::FULL2WIRE, 1 , 0);
-AccelStepper stepperB(AccelStepper::FULL2WIRE, 12, 18);
-MultiStepper steppers;
-long target_positons[2] = {1000,1000};
+// AccelStepper stepperA(AccelStepper::DRIVER, 1 , 0);
+// AccelStepper stepperB(AccelStepper::DRIVER, 18, 12);
+// MultiStepper steppers;
+// long target_positons[2] = {1000,1000};
 
 
 //定义整个GUI需要的全局变量
@@ -121,14 +157,27 @@ void setup() {
 	// 蜂鸣器IO口设置部分
 	// pinMode(19,OUTPUT);
 	//配置步进电机
-	stepperA.setMaxSpeed(100);
-	stepperB.setMaxSpeed(100);
-	steppers.addStepper(stepperA);
-	steppers.addStepper(stepperB);
-	//开展步进电机的测试，阻塞性质
-	steppers.moveTo(target_positons);
-	steppers.runSpeedToPosition(); // Blocks until all are in position
-	delay(10000);
+	// pinMode(12,OUTPUT);
+	// pinMode(18,OUTPUT);
+	// stepperA.setMaxSpeed(100);
+	// stepperB.setMaxSpeed(100);
+	// stepperB.setPinsInverted(false,true,false);
+	// steppers.addStepper(stepperA);
+	// steppers.addStepper(stepperB);
+	// //开展步进电机的测试，阻塞性质
+	// steppers.moveTo(target_positons);
+	// steppers.runSpeedToPosition(); // Blocks until all are in position
+	// delay(10000);
+    stepperX.begin(MOTOR_X_RPM, MICROSTEPS);
+    stepperY.begin(MOTOR_Y_RPM, MICROSTEPS);
+	stepperY.rotate(720);
+    controller.rotate(90*5, 60*15);
+    delay(1000);
+    controller.rotate(-90*5, -30*15);
+    delay(1000);
+    controller.rotate(0, -30*15);
+    delay(30000);
+
 	//屏幕初始化
 	u8g2.begin();
 	// u8g2.firstPage();
@@ -159,6 +208,9 @@ void setup() {
 }
 
 void loop() {
+
+
+
 	//板载LED测试部分
 	// digitalWrite(12,HIGH);
 	// // digitalWrite(13,HIGH);

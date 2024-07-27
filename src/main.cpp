@@ -213,7 +213,7 @@ void loop() {
 				u8g2.setCursor(4, 58);
 				u8g2.print(itemC);u8g2.print(total_turns);
 				u8g2.setDrawColor(2);
-				u8g2.drawBox(1, 22, 120, 41);
+				u8g2.drawBox(1, 22, 120, 20);
 			} while ( u8g2.nextPage() );
 			break;
 		case 2:
@@ -228,7 +228,7 @@ void loop() {
 				u8g2.setCursor(4, 58);
 				u8g2.print(itemC);u8g2.print(total_turns);
 				u8g2.setDrawColor(2);
-				u8g2.drawBox(1, 43, 120, 62);
+				u8g2.drawBox(1, 43, 120, 20);
 			} while ( u8g2.nextPage() );
 			break;
 		case 3:
@@ -258,7 +258,7 @@ void loop() {
 				u8g2.setCursor(4, 58);
 				u8g2.print(itemF);u8g2.print(move_steps);
 				u8g2.setDrawColor(2);
-				u8g2.drawBox(1, 22, 120, 41);
+				u8g2.drawBox(1, 22, 120, 20);
 			} while ( u8g2.nextPage() );
 			break;
 		case 5:
@@ -273,7 +273,7 @@ void loop() {
 				u8g2.setCursor(4, 58);
 				u8g2.print(itemF);u8g2.print(move_steps);
 				u8g2.setDrawColor(2);
-				u8g2.drawBox(1, 43, 120, 62);
+				u8g2.drawBox(1, 43, 120, 20);
 			} while ( u8g2.nextPage() );
 			break;
 		default:

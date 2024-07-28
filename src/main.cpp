@@ -188,6 +188,13 @@ void loop() {
 			turns_now = 0;
 			turns_layer = layer_turns;
 			turns_total = total_turns;
+			//并将步进电机初始位置复位
+			stepperA.setCurrentPosition(0);
+			stepperB.setCurrentPosition(0);
+			//做一个容错的判断，总匝数必须大于单层匝数,否则无法切换至待运行状态
+			if(layer_turns > total_turns){
+				running_state = 0;
+			}
 		}
 		//处理菜单循环按键
 		if (0 == digitalRead(8)){
@@ -328,54 +335,56 @@ void loop() {
 				newPosition = myEnc.read();
 				if (newPosition != wire_diameter_encoder) {
 					wire_diameter_encoder = newPosition;
+					wire_diameter = wire_diameter_init + wire_diameter_encoder/4*10;
+					nvs_logger.wire_diameter = wire_diameter;
+					preferences.putBytes("nvs-log", &nvs_logger, sizeof(nvs_logger));					
 				}
-				wire_diameter = wire_diameter_init + wire_diameter_encoder/4*10;
-				nvs_logger.wire_diameter = wire_diameter;
-				preferences.putBytes("nvs-log", &nvs_logger, sizeof(nvs_logger));
 				break;
 			case 1:
 				newPosition = myEnc.read();
 				if (newPosition != layer_turns_encoder) {
 					layer_turns_encoder = newPosition;
+					layer_turns = layer_turns_init + layer_turns_encoder/4;
+					nvs_logger.layer_turns = layer_turns;
+					preferences.putBytes("nvs-log", &nvs_logger, sizeof(nvs_logger));					
 				}
-				layer_turns = layer_turns_init + layer_turns_encoder/4;
-				nvs_logger.layer_turns = layer_turns;
-				preferences.putBytes("nvs-log", &nvs_logger, sizeof(nvs_logger));
 				break;			
 			case 2:
 				newPosition = myEnc.read();
 				if (newPosition != total_turns_encoder) {
 					total_turns_encoder = newPosition;
+					total_turns = total_turns_init + total_turns_encoder/4;
+					nvs_logger.total_turns = total_turns;
+					preferences.putBytes("nvs-log", &nvs_logger, sizeof(nvs_logger));
 				}
-				total_turns = total_turns_init + total_turns_encoder/4;
-				nvs_logger.total_turns = total_turns;
-				preferences.putBytes("nvs-log", &nvs_logger, sizeof(nvs_logger));
 				break;	
 			case 3:
 				newPosition = myEnc.read();
 				if (newPosition != return_error_encoder) {
 					return_error_encoder = newPosition;
+					return_error = return_error_init + return_error_encoder/4;
+					nvs_logger.return_error = return_error;
+					preferences.putBytes("nvs-log", &nvs_logger, sizeof(nvs_logger));	
 				}
-				return_error = return_error_init + return_error_encoder/4;
-				nvs_logger.return_error = return_error;
-				preferences.putBytes("nvs-log", &nvs_logger, sizeof(nvs_logger));			
 				break;			
 			case 4:
 				newPosition = myEnc.read();
 				if (newPosition != setting_step_encoder) {
 					setting_step_encoder = newPosition;
+					setting_step = setting_step_init + setting_step_encoder/4;
+					nvs_logger.setting_step = setting_step;
+					preferences.putBytes("nvs-log", &nvs_logger, sizeof(nvs_logger));	
 				}
-				setting_step = setting_step_init + setting_step_encoder/4;
-				nvs_logger.setting_step = setting_step;
-				preferences.putBytes("nvs-log", &nvs_logger, sizeof(nvs_logger));	
 				break;	
 			case 5:
 				newPosition = myEnc.read();
 				if (newPosition != move_steps_encoder) {
 					move_steps_encoder = newPosition;
 				}
-				move_steps = move_steps_init + move_steps_encoder/4;
+				move_steps = move_steps_init + move_steps_encoder/4*setting_step;
 				//此处还要驱动步进电机定位运动
+				stepperA.moveTo(move_steps);
+				stepperA.run();
 				break;								
 			default:
 				break;
@@ -418,8 +427,13 @@ void loop() {
 				//根据本层所需匝数，结合线径，计算步进电机目标位置
 				//电机A为排线电机，电机B为绕线电机
 				//总距离 = （漆包线直径 + 漆膜厚度*2 + 预留缝隙）* 本层匝数
+				//2gt皮带齿距2mm，轴上的同步轮20T，200steps = 40mm
+				//
 				//再把总距离根据机械变比和步数微分转换为步进电机步数即可
-				target_positons[0] = 0;
+				//以下计算过程，单位均为um
+				//target_positons[0] = ((wire_diameter + 2*25 + 100) * turns_layer) / (2000*20) * 200;
+				//简化运算，且正向即使不满，也不会出错
+				target_positons[0] = ((wire_diameter + 2*25 + 100) * turns_layer) / 400;
 				//总圈数 = 本层匝数
 				//再把总圈数转换为步进电机步数即可
 				//步进电机是绝对定位的，取得现有位置再加上偏移
@@ -427,8 +441,10 @@ void loop() {
 			}
 			//偶数则反向运行
 			if(0 == layer_now % 2){
-				target_positons[0] = 0;
-				target_positons[1] = stepperB.currentPosition() - 200 * turns_layer;
+				//正常反向运行是到0，也就是回家了。
+				target_positons[0] = stepperA.currentPosition() - ((wire_diameter + 2*25 + 100) * turns_layer) / 400;
+				//Y轴绕线电机只有一个运行方向
+				target_positons[1] = stepperB.currentPosition() + 200 * turns_layer;
 			}
 			//设定步进电机组输入，并开始无阻塞运行
 			steppers.moveTo(target_positons);
@@ -462,17 +478,21 @@ void loop() {
 		//此函数需要一直调用，步进电机的运行脉冲来自前台而非后台。
 		steppers.run();
 
-		//turns_now是根据绕线电机运行情况计算而来的。
-		//同样也要区分正反
-		if(1 == layer_now % 2){
-			//正向运行是正数
-			turns_now = stepperB.currentPosition()/200;
-		}
-		//偶数则反向运行
-		if(0 == layer_now % 2){
-			//反向运行也是正数，但是是倒着数的，需要反过来
-			turns_now = turns_layer - stepperB.currentPosition()/200;
-		}
+		// //turns_now是根据绕线电机运行情况计算而来的。
+		// //同样也要区分正反
+		// if(1 == layer_now % 2){
+		// 	//正向运行是正数
+		// 	turns_now = stepperB.currentPosition()/200;
+		// }
+		// //偶数则反向运行
+		// if(0 == layer_now % 2){
+		// 	//反向运行也是正数，但是是倒着数的，需要反过来
+		// 	turns_now = layer_turns - stepperB.currentPosition()/200;
+		// }
+		//Y轴绕线电机运行方向始终是一个
+		turns_now = (stepperB.currentPosition()/200) % turns_layer;
+
+
 		//显示运行状态匝数
 		//在有变化时运行该显示，降低前端的消耗，保障run函数的运行
 		if(turns_now != last_turns_now){
@@ -502,6 +522,18 @@ void loop() {
 				} while ( u8g2.nextPage() );		//结束后切换为待运行状态
 				delay(3000);
 				running_state = 0;
+				//重置所有参数，防止其干扰下一次运行
+				layer_now = 0;
+				layer_total = 0;
+				turns_now = 0;
+				turns_layer = 0;
+				turns_total = 0;
+				last_layer_turns = 0;
+				last_time_stamp = 0;
+				last_turns_now = 9999;
+				//最后一层不完整缠绕后，步进电机绝对位置记忆的也是错的，不过最终都需要对刀
+				stepperA.setCurrentPosition(0);
+				stepperB.setCurrentPosition(0);
 			}
 		}
 	}	

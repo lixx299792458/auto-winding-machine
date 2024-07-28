@@ -7,6 +7,18 @@
 #include <AccelStepper.h>
 #include <MultiStepper.h>
 
+//GPIO解锁
+//esp32-c3简直就是在诈骗
+// ESP32C3的GPIO11(VDD_SPI)默认功能是给flash供电，本开发板的Flash的VDD直接接3.3，所以可以将此IO用作GPIO.
+// 以下是操作流程，注意以下的操作只能执行一次，更改后不能复原（因为是设置熔丝位，不是寄存器，一次性操作）
+// 使用python的pip安装esptool。pip install esptool
+// 将开发板插入电脑, 在设备管理器中可以看到端口, 记录端口号, 例如 COM20
+// 打开命令行窗口输入espefuse -p COM20 burn_efuse VDD_SPI_AS_GPIO 1
+// 看提示，输入’BURN’
+
+//步进电机存在硬件问题
+//其实这也是显而易见的，只不过我被驱动器上5-24V的丝印迷惑了
+//3.3V的IO口和5V的阳极输入配合，光耦的二极管根本关不断。改成3.3V供给阳级。
 // #define DEBUG
 
 //永久存储部分
@@ -21,28 +33,11 @@ struct logtype {
 };
 logtype nvs_logger = {0,0,0,0,0};
 
-//GPIO解锁
-//esp32-c3简直就是在诈骗
-// ESP32C3的GPIO11(VDD_SPI)默认功能是给flash供电，本开发板的Flash的VDD直接接3.3，所以可以将此IO用作GPIO.
-// 以下是操作流程，注意以下的操作只能执行一次，更改后不能复原（因为是设置熔丝位，不是寄存器，一次性操作）
-// 使用python的pip安装esptool。pip install esptool
-// 将开发板插入电脑, 在设备管理器中可以看到端口, 记录端口号, 例如 COM20
-// 打开命令行窗口输入espefuse -p COM20 burn_efuse VDD_SPI_AS_GPIO 1
-// 看提示，输入’BURN’
-
-//步进电机存在硬件问题
-//其实这也是显而易见的，只不过我被驱动器上5-24V的丝印迷惑了
-//3.3V的IO口和5V的阳极输入配合，光耦的二极管根本关不断。改成3.3V供给阳级。
-
 //屏幕相关定义
 //U8G2_SSD1306_128X64_NONAME_1_4W_SW_SPI u8g2(U8G2_R0, /* clock=*/ 13, /* data=*/ 11, /* cs=*/ 10, /* dc=*/ 9, /* reset=*/ 8);
 U8G2_SSD1306_128X64_NONAME_1_4W_HW_SPI u8g2(U8G2_R0, 11, 7, 6);
 
-//ESP32-C3芯片，这个编码器库不支持
 // //旋转编码器定义部分
-// #define CLK 4 // CLK ENCODER 
-// #define DT 5 // DT ENCODER 
-// ESP32Encoder encoder;
 Encoder myEnc(5, 4);
 
 //定义步进电机部分
@@ -87,7 +82,7 @@ int32_t move_steps_encoder = 0;
 int32_t move_steps = 0;
 
 //机器总共三种状态，0、参数设置状态。1、运行待确认状态。2、运行状态。
-uint8_t running_state = 4;
+uint8_t running_state = 0;
 
 //缠绕所需参数
 //总共层数参数
@@ -115,9 +110,8 @@ void setup() {
 	return_error = nvs_logger.return_error;
 	setting_step = nvs_logger.setting_step;
 	// //板载LED测试部分
-	pinMode(12,OUTPUT);
+	// pinMode(12,OUTPUT);
 	// pinMode(13,OUTPUT);
-
 	//设置按键切换状态
 	pinMode(8,INPUT_PULLUP);
 	pinMode(13,INPUT_PULLUP);
@@ -135,62 +129,24 @@ void setup() {
 	// steppers.moveTo(target_positons);
 	// steppers.runSpeedToPosition(); // Blocks until all are in position
 	// delay(10000);
-
 	//屏幕初始化
 	u8g2.begin();
-	// u8g2.firstPage();
-	// // do {
-	// // 	u8g2.setFont(u8g2_font_VCR_OSD_tu);
-	// // 	u8g2.setFontMode(1);
-	// // 	u8g2.setDrawColor(1);
-	// // 	u8g2.drawBox(0, 0, 127, 63);
-	// // 	u8g2.setDrawColor(2);
-	// // 	u8g2.setCursor(1, 20);
-	// // 	u8g2.print("1234");
-	// // } while ( u8g2.nextPage() );
-	// do {
-	// 	u8g2.setFont(u8g2_font_VCR_OSD_tu);
-	// 	u8g2.setCursor(1, 20);
-	// 	u8g2.print("1234");
-
-	// 	u8g2.setDrawColor(2);
-	// 	u8g2.drawBox(0, 0, 127, 24);
-
-	// } while ( u8g2.nextPage() );
+	u8g2.firstPage();
+	do {
+		u8g2.setFont(u8g2_font_7x14_mr);
+		u8g2.setCursor(4, 28);
+		u8g2.print("   Auto Winding");
+		u8g2.setCursor(4, 52);
+		u8g2.print("     Machine   ");		
+	} while (u8g2.nextPage());
+	delay(2000);
 	#ifdef DEBUG
 		Serial.begin(9600);
 		// Serial.println("Basic Encoder Test:");
 	#endif
-
-
 }
 
 void loop() {
-	//直接用IO口模拟脉冲，50Hz的吧
-	// digitalWrite(18,HIGH);
-	// delay(20);
-	// digitalWrite(18,LOW);
-	// delay(20);
-	//板载LED测试部分
-	// digitalWrite(12,HIGH);
-	// // digitalWrite(13,HIGH);
-	// delay(1000);
-	// digitalWrite(12,LOW);
-	// // digitalWrite(13,LOW);
-	// delay(1000);
-	//蜂鸣器测试部分
-	// digitalWrite(19,HIGH);
-	// delay(1000);
-	// digitalWrite(19,LOW);
-	// delay(1000);
-	//编码器测试部分
-	//   long newPosition = myEnc.read();
-	//   if (newPosition != oldPosition) {
-	//     oldPosition = newPosition;
-	//     Serial.println(newPosition);
-	//   }
-
-
 	//参数设置状态
 	if(0 == running_state){
 		//切换运行状态
@@ -200,6 +156,18 @@ void loop() {
 			while(!digitalRead(13));
 			delay(20);
 			running_state = 1;
+			//切换至运行状态计算一次参数
+			//计算相关绕线参数
+			layer_now = 1;
+			layer_total = total_turns / layer_turns;
+			last_layer_turns = total_turns % layer_turns;
+			//最后一层不等于0，则层数加1
+			if(0 != last_layer_turns){
+				layer_total ++;
+			}
+			turns_now = 0;
+			turns_layer = layer_turns;
+			turns_total = total_turns;
 		}
 		//处理菜单循环按键
 		if (0 == digitalRead(8)){
@@ -414,13 +382,37 @@ void loop() {
 			while(!digitalRead(8));
 			delay(20);
 			running_state = 2;
+			//运行之前计算参数
+			//确定好圈数即可,判断是否是最后一圈且最后一圈不整齐
+			if((0!=last_layer_turns)&(layer_now == layer_total))
+			{
+				turns_layer = last_layer_turns;
+			}
+			//这个的设定只需要一次，我看又得放在按键转换状态的瞬间了。
+			//运行需要三个要素，1、当前层数。2、当前目标方向。3、缠绕圈数。
+			//每层是设定一个目标，一次运行到底
+			//层数分奇偶，方向不同
+			//奇数则正向运行
+			if(1 == layer_now % 2){
+				//根据本层所需匝数，结合线径，计算步进电机目标位置
+				//电机A为排线电机，电机B为绕线电机
+				//总距离 = （漆包线直径 + 漆膜厚度*2 + 预留缝隙）* 本层匝数
+				//再把总距离根据机械变比和步数微分转换为步进电机步数即可
+				target_positons[0] = 0;
+				//总圈数 = 本层匝数
+				//再把总圈数转换为步进电机步数即可
+				//步进电机是绝对定位的，取得现有位置再加上偏移
+				target_positons[1] = stepperB.currentPosition() + 200 * turns_layer;
+			}
+			//偶数则反向运行
+			if(0 == layer_now % 2){
+				target_positons[0] = 0;
+				target_positons[1] = stepperB.currentPosition() - 200 * turns_layer;
+			}
+			//设定步进电机组输入，并开始无阻塞运行
+			steppers.moveTo(target_positons);
+			steppers.run();
 		}
-		//计算相关绕线参数
-		// layer_now = 1;
-		layer_total = total_turns/layer_turns;
-		turns_now = 0;
-		turns_layer = layer_turns;
-		turns_total = total_turns;
 		//显示相关内容及确认取消按钮
 		u8g2.firstPage();
 		do {
@@ -433,37 +425,44 @@ void loop() {
 			u8g2.print(" YES!         NO!");
 		} while ( u8g2.nextPage() );
 
-		if(layer_now == layer_total){
-			u8g2.firstPage();
-			do {
-				u8g2.setFont(u8g2_font_7x14_mr);
-				u8g2.setCursor(4, 40);
-				u8g2.print("done!");
-			} while ( u8g2.nextPage() );
-			delay(5000);
-			running_state = 0;
-		}
+		// if(layer_now == layer_total){
+		// 	u8g2.firstPage();
+		// 	do {
+		// 		u8g2.setFont(u8g2_font_7x14_mr);
+		// 		u8g2.setCursor(4, 40);
+		// 		u8g2.print("done!");
+		// 	} while ( u8g2.nextPage() );
+		// 	delay(5000);
+		// 	running_state = 0;
+		// }
 	}
 	//运行状态
 	if(2 == running_state){
-		//要特殊处理last_layer
-		// todo:
-		//操作步进电机，并显示运行状态匝数等
+		//turns_now是根据绕线电机运行情况计算而来的。
+		//同样也要区分正反
+		if(1 == layer_now % 2){
+			//正向运行是正数
+			turns_now = stepperB.currentPosition()/200;
+		}
+		//偶数则反向运行
+		if(0 == layer_now % 2){
+			//反向运行也是正数，但是是倒着数的，需要反过来
+			turns_now = turns_layer - stepperB.currentPosition()/200;
+		}
+		//判断电机是否停机，两个都要判断，如果都已经停机，说明绕弯了本层，退出运行状态即可
+		if((false == stepperA.isRunning()) & (false == stepperB.isRunning())){
+			running_state = 1;
+			//从此处结束整个运行似乎更为妥当
+			//判断是否为最后一行，是的话，结束整个程序，显示结束界面
+			
+		}
+		//显示运行状态匝数
 		u8g2.firstPage();
 		do {
 			u8g2.setFont(u8g2_font_7x14_mr);
 			u8g2.setCursor(4, 40);
 			u8g2.print("turns:");u8g2.print(turns_now);u8g2.print("/");u8g2.print(turns_layer);u8g2.print("/");u8g2.print(turns_total);
 		} while ( u8g2.nextPage() );		//结束后切换为待运行状态
-
-		turns_now ++ ;
-		delay(500);
-		if(turns_now == turns_layer){
-			layer_now ++;
-			running_state = 1;
-		}
-
 	}	
-
 }
 

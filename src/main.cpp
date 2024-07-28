@@ -4,46 +4,10 @@
 #include <SPI.h>
 #include <Encoder.h>
 #include <Preferences.h>
-// #include <AccelStepper.h>
-// #include <MultiStepper.h>
-#include <Arduino.h>
-#include "BasicStepperDriver.h"
-#include "MultiDriver.h"
-#include "SyncDriver.h"
+#include <AccelStepper.h>
+#include <MultiStepper.h>
 
-// Motor steps per revolution. Most steppers are 200 steps or 1.8 degrees/step
-#define MOTOR_STEPS 200
-// Target RPM for X axis motor
-#define MOTOR_X_RPM 30
-// Target RPM for Y axis motor
-#define MOTOR_Y_RPM 90
-
-// X motor
-#define DIR_X 0
-#define STEP_X 1
-
-// Y motor
-#define DIR_Y 12
-#define STEP_Y 18
-
-// If microstepping is set externally, make sure this matches the selected mode
-// 1=full step, 2=half step etc.
-#define MICROSTEPS 1
-
-// 2-wire basic config, microstepping is hardwired on the driver
-// Other drivers can be mixed and matched but must be configured individually
-BasicStepperDriver stepperX(MOTOR_STEPS, DIR_X, STEP_X);
-BasicStepperDriver stepperY(MOTOR_STEPS, DIR_Y, STEP_Y);
-
-// Pick one of the two controllers below
-// each motor moves independently, trajectory is a hockey stick
-// MultiDriver controller(stepperX, stepperY);
-// OR
-// synchronized move, trajectory is a straight line
-SyncDriver controller(stepperX, stepperY);
-
-
-#define DEBUG
+// #define DEBUG
 
 //永久存储部分
 Preferences preferences;
@@ -66,6 +30,10 @@ logtype nvs_logger = {0,0,0,0,0};
 // 打开命令行窗口输入espefuse -p COM20 burn_efuse VDD_SPI_AS_GPIO 1
 // 看提示，输入’BURN’
 
+//步进电机存在硬件问题
+//其实这也是显而易见的，只不过我被驱动器上5-24V的丝印迷惑了
+//3.3V的IO口和5V的阳极输入配合，光耦的二极管根本关不断。改成3.3V供给阳级。
+
 //屏幕相关定义
 //U8G2_SSD1306_128X64_NONAME_1_4W_SW_SPI u8g2(U8G2_R0, /* clock=*/ 13, /* data=*/ 11, /* cs=*/ 10, /* dc=*/ 9, /* reset=*/ 8);
 U8G2_SSD1306_128X64_NONAME_1_4W_HW_SPI u8g2(U8G2_R0, 11, 7, 6);
@@ -78,11 +46,10 @@ U8G2_SSD1306_128X64_NONAME_1_4W_HW_SPI u8g2(U8G2_R0, 11, 7, 6);
 Encoder myEnc(5, 4);
 
 //定义步进电机部分
-// AccelStepper stepperA(AccelStepper::DRIVER, 1 , 0);
-// AccelStepper stepperB(AccelStepper::DRIVER, 18, 12);
-// MultiStepper steppers;
-// long target_positons[2] = {1000,1000};
-
+AccelStepper stepperA(AccelStepper::DRIVER, 1 , 0);
+AccelStepper stepperB(AccelStepper::DRIVER, 18, 12);
+MultiStepper steppers;
+long target_positons[2] = {1000,1000};
 
 //定义整个GUI需要的全局变量
 //6个菜单
@@ -120,7 +87,7 @@ int32_t move_steps_encoder = 0;
 int32_t move_steps = 0;
 
 //机器总共三种状态，0、参数设置状态。1、运行待确认状态。2、运行状态。
-uint8_t running_state = 0;
+uint8_t running_state = 4;
 
 //缠绕所需参数
 //总共层数参数
@@ -157,26 +124,17 @@ void setup() {
 	// 蜂鸣器IO口设置部分
 	// pinMode(19,OUTPUT);
 	//配置步进电机
-	// pinMode(12,OUTPUT);
-	// pinMode(18,OUTPUT);
-	// stepperA.setMaxSpeed(100);
-	// stepperB.setMaxSpeed(100);
-	// stepperB.setPinsInverted(false,true,false);
-	// steppers.addStepper(stepperA);
-	// steppers.addStepper(stepperB);
-	// //开展步进电机的测试，阻塞性质
+	pinMode(12,OUTPUT);
+	pinMode(18,OUTPUT);
+	stepperA.setMaxSpeed(100);
+	stepperB.setMaxSpeed(100);
+	stepperB.setPinsInverted(false,true,false);
+	steppers.addStepper(stepperA);
+	steppers.addStepper(stepperB);
+	//开展步进电机的测试，阻塞性质
 	// steppers.moveTo(target_positons);
 	// steppers.runSpeedToPosition(); // Blocks until all are in position
 	// delay(10000);
-    stepperX.begin(MOTOR_X_RPM, MICROSTEPS);
-    stepperY.begin(MOTOR_Y_RPM, MICROSTEPS);
-	stepperY.rotate(720);
-    controller.rotate(90*5, 60*15);
-    delay(1000);
-    controller.rotate(-90*5, -30*15);
-    delay(1000);
-    controller.rotate(0, -30*15);
-    delay(30000);
 
 	//屏幕初始化
 	u8g2.begin();
@@ -208,9 +166,11 @@ void setup() {
 }
 
 void loop() {
-
-
-
+	//直接用IO口模拟脉冲，50Hz的吧
+	// digitalWrite(18,HIGH);
+	// delay(20);
+	// digitalWrite(18,LOW);
+	// delay(20);
 	//板载LED测试部分
 	// digitalWrite(12,HIGH);
 	// // digitalWrite(13,HIGH);

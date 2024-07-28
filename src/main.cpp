@@ -19,7 +19,7 @@
 //步进电机存在硬件问题
 //其实这也是显而易见的，只不过我被驱动器上5-24V的丝印迷惑了
 //3.3V的IO口和5V的阳极输入配合，光耦的二极管根本关不断。改成3.3V供给阳级。
-// #define DEBUG
+#define DEBUG
 
 //永久存储部分
 Preferences preferences;
@@ -86,14 +86,16 @@ uint8_t running_state = 0;
 
 //缠绕所需参数
 //总共层数参数
-int32_t layer_now = 1;
-int32_t layer_total = 1;
+int32_t layer_now = 0;
+int32_t layer_total = 0;
 //每层匝数参数
-int32_t turns_now = 1;
-int32_t turns_layer = 1;
-int32_t turns_total = 1;
+int32_t turns_now = 0;
+int32_t turns_layer = 0;
+int32_t turns_total = 0;
 //处理最后一层不满现象
 int32_t last_layer_turns = 0;
+
+long last_time_stamp = 0;
 
 void setup() {
 	//上次设置的数值初始化
@@ -141,12 +143,28 @@ void setup() {
 	} while (u8g2.nextPage());
 	delay(2000);
 	#ifdef DEBUG
-		Serial.begin(9600);
-		// Serial.println("Basic Encoder Test:");
+		Serial.begin(115200);
 	#endif
 }
 
 void loop() {
+
+	if((millis() - last_time_stamp) > 1000){
+		last_time_stamp = millis();
+	//参数监视功能
+	#ifdef DEBUG
+		Serial.print("running_state = ");Serial.println(running_state);		
+		Serial.print("layer_now = ");Serial.println(layer_now);		
+		Serial.print("turns_now = ");Serial.println(turns_now);	
+		Serial.print("targetpositionA = ");Serial.println(target_positons[0]);
+		Serial.print("targetpositionB = ");Serial.println(target_positons[1]);
+		Serial.print("currentpositionA = ");Serial.println(stepperA.currentPosition());
+		Serial.print("currentpositionB = ");Serial.println(stepperB.currentPosition());	
+		Serial.println();Serial.println();Serial.println();
+
+
+	#endif	
+	}
 	//参数设置状态
 	if(0 == running_state){
 		//切换运行状态
@@ -383,11 +401,13 @@ void loop() {
 			delay(20);
 			running_state = 2;
 			//运行之前计算参数
+			turns_layer = layer_turns;
 			//确定好圈数即可,判断是否是最后一圈且最后一圈不整齐
 			if((0!=last_layer_turns)&(layer_now == layer_total))
 			{
 				turns_layer = last_layer_turns;
 			}
+
 			//这个的设定只需要一次，我看又得放在按键转换状态的瞬间了。
 			//运行需要三个要素，1、当前层数。2、当前目标方向。3、缠绕圈数。
 			//每层是设定一个目标，一次运行到底
@@ -411,7 +431,6 @@ void loop() {
 			}
 			//设定步进电机组输入，并开始无阻塞运行
 			steppers.moveTo(target_positons);
-			steppers.run();
 		}
 		//显示相关内容及确认取消按钮
 		u8g2.firstPage();
@@ -435,9 +454,13 @@ void loop() {
 		// 	delay(5000);
 		// 	running_state = 0;
 		// }
+
 	}
 	//运行状态
 	if(2 == running_state){
+		//此函数需要一直调用，步进电机的运行脉冲来自前台而非后台。
+		steppers.run();
+
 		//turns_now是根据绕线电机运行情况计算而来的。
 		//同样也要区分正反
 		if(1 == layer_now % 2){
@@ -452,9 +475,10 @@ void loop() {
 		//判断电机是否停机，两个都要判断，如果都已经停机，说明绕弯了本层，退出运行状态即可
 		if((false == stepperA.isRunning()) & (false == stepperB.isRunning())){
 			running_state = 1;
+			layer_now ++;
 			//从此处结束整个运行似乎更为妥当
 			//判断是否为最后一行，是的话，结束整个程序，显示结束界面
-			
+
 		}
 		//显示运行状态匝数
 		u8g2.firstPage();

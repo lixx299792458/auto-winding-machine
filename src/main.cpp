@@ -124,7 +124,7 @@ void setup() {
 	pinMode(18,OUTPUT);
 	stepperA.setMaxSpeed(200);
 	stepperB.setMaxSpeed(200);
-	stepperB.setPinsInverted(false,true,false);
+	stepperB.setPinsInverted(true,false,false);
 	steppers.addStepper(stepperA);
 	steppers.addStepper(stepperB);
 	//开展步进电机的测试，阻塞性质
@@ -163,8 +163,6 @@ void loop() {
 		Serial.print("stepperA_distanceToGo = ");Serial.println(stepperA.distanceToGo());
 		Serial.print("stepperB_distanceToGo = ");Serial.println(stepperB.distanceToGo());	
 		Serial.println();Serial.println();Serial.println();
-
-
 	#endif	
 	}
 	//参数设置状态
@@ -434,6 +432,9 @@ void loop() {
 				//target_positons[0] = ((wire_diameter + 2*25 + 100) * turns_layer) / (2000*20) * 200;
 				//简化运算，且正向即使不满，也不会出错
 				target_positons[0] = ((wire_diameter + 2*25 + 100) * turns_layer) / 400;
+				//加入细分，8步细分吧就
+				target_positons[0] = ((wire_diameter + 2*25 + 100) * turns_layer) / 50;
+
 				//总圈数 = 本层匝数
 				//再把总圈数转换为步进电机步数即可
 				//步进电机是绝对定位的，取得现有位置再加上偏移
@@ -442,7 +443,7 @@ void loop() {
 			//偶数则反向运行
 			if(0 == layer_now % 2){
 				//正常反向运行是到0，也就是回家了。
-				target_positons[0] = stepperA.currentPosition() - ((wire_diameter + 2*25 + 100) * turns_layer) / 400;
+				target_positons[0] = stepperA.currentPosition() - ((wire_diameter + 2*25 + 100) * turns_layer) / 50;
 				//Y轴绕线电机只有一个运行方向
 				target_positons[1] = stepperB.currentPosition() + 200 * turns_layer;
 			}

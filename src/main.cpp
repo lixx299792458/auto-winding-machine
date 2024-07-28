@@ -44,7 +44,7 @@ Encoder myEnc(5, 4);
 AccelStepper stepperA(AccelStepper::DRIVER, 1 , 0);
 AccelStepper stepperB(AccelStepper::DRIVER, 18, 12);
 MultiStepper steppers;
-long target_positons[2] = {1000,1000};
+long target_positons[2] = {0,0};
 
 //定义整个GUI需要的全局变量
 //6个菜单
@@ -96,7 +96,7 @@ int32_t turns_total = 0;
 int32_t last_layer_turns = 0;
 
 long last_time_stamp = 0;
-
+int32_t last_turns_now = 9999;
 void setup() {
 	//上次设置的数值初始化
 	preferences.begin("nvs-log", false);
@@ -122,8 +122,8 @@ void setup() {
 	//配置步进电机
 	pinMode(12,OUTPUT);
 	pinMode(18,OUTPUT);
-	stepperA.setMaxSpeed(100);
-	stepperB.setMaxSpeed(100);
+	stepperA.setMaxSpeed(200);
+	stepperB.setMaxSpeed(200);
 	stepperB.setPinsInverted(false,true,false);
 	steppers.addStepper(stepperA);
 	steppers.addStepper(stepperB);
@@ -160,6 +160,8 @@ void loop() {
 		Serial.print("targetpositionB = ");Serial.println(target_positons[1]);
 		Serial.print("currentpositionA = ");Serial.println(stepperA.currentPosition());
 		Serial.print("currentpositionB = ");Serial.println(stepperB.currentPosition());	
+		Serial.print("stepperA_distanceToGo = ");Serial.println(stepperA.distanceToGo());
+		Serial.print("stepperB_distanceToGo = ");Serial.println(stepperB.distanceToGo());	
 		Serial.println();Serial.println();Serial.println();
 
 
@@ -407,7 +409,6 @@ void loop() {
 			{
 				turns_layer = last_layer_turns;
 			}
-
 			//这个的设定只需要一次，我看又得放在按键转换状态的瞬间了。
 			//运行需要三个要素，1、当前层数。2、当前目标方向。3、缠绕圈数。
 			//每层是设定一个目标，一次运行到底
@@ -472,21 +473,37 @@ void loop() {
 			//反向运行也是正数，但是是倒着数的，需要反过来
 			turns_now = turns_layer - stepperB.currentPosition()/200;
 		}
+		//显示运行状态匝数
+		//在有变化时运行该显示，降低前端的消耗，保障run函数的运行
+		if(turns_now != last_turns_now){
+			last_turns_now = turns_now;
+			u8g2.firstPage();
+			do {
+				u8g2.setFont(u8g2_font_7x14_mr);
+				u8g2.setCursor(4, 30);
+				u8g2.print("layers:");u8g2.print(layer_now);u8g2.print("/");u8g2.print(layer_total);				
+				u8g2.setCursor(4, 48);
+				u8g2.print("turns:");u8g2.print(turns_now);u8g2.print("/");u8g2.print(turns_layer);
+			} while ( u8g2.nextPage() );		//结束后切换为待运行状态
+		}
 		//判断电机是否停机，两个都要判断，如果都已经停机，说明绕弯了本层，退出运行状态即可
-		if((false == stepperA.isRunning()) & (false == stepperB.isRunning())){
+		if((0 == stepperA.distanceToGo()) & (0 == stepperB.distanceToGo())){
 			running_state = 1;
 			layer_now ++;
 			//从此处结束整个运行似乎更为妥当
 			//判断是否为最后一行，是的话，结束整个程序，显示结束界面
-
+			if(layer_now > layer_total)
+			{
+				u8g2.firstPage();
+				do {
+					u8g2.setFont(u8g2_font_7x14_mr);
+					u8g2.setCursor(4, 40);
+					u8g2.print("all done!");				
+				} while ( u8g2.nextPage() );		//结束后切换为待运行状态
+				delay(3000);
+				running_state = 0;
+			}
 		}
-		//显示运行状态匝数
-		u8g2.firstPage();
-		do {
-			u8g2.setFont(u8g2_font_7x14_mr);
-			u8g2.setCursor(4, 40);
-			u8g2.print("turns:");u8g2.print(turns_now);u8g2.print("/");u8g2.print(turns_layer);u8g2.print("/");u8g2.print(turns_total);
-		} while ( u8g2.nextPage() );		//结束后切换为待运行状态
 	}	
 }
 
